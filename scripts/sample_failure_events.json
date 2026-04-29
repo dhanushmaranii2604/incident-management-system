@@ -1,0 +1,37 @@
+[
+  {
+    "component_id": "POSTGRES_PRIMARY_01",
+    "component_type": "RDBMS",
+    "message": "Connection timeout: primary node unreachable after 5000ms",
+    "error_code": "CONN_TIMEOUT_5000",
+    "metadata": { "host": "db-node-01", "port": 5432, "latency_ms": 5000 }
+  },
+  {
+    "component_id": "MCP_HOST_CLUSTER_A",
+    "component_type": "MCP",
+    "message": "Orchestration breakdown: cannot reach data store",
+    "error_code": "MCP_STORE_UNREACHABLE",
+    "metadata": { "host": "mcp-01", "dependency": "POSTGRES_PRIMARY_01" }
+  },
+  {
+    "component_id": "CACHE_CLUSTER_01",
+    "component_type": "CACHE",
+    "message": "Cache miss rate > 95%, falling back to cold storage",
+    "error_code": "CACHE_MISS_HIGH",
+    "metadata": { "miss_rate": 0.97, "cluster": "redis-ha-01" }
+  },
+  {
+    "component_id": "API_GATEWAY_PROD",
+    "component_type": "API",
+    "message": "P99 latency > 2000ms, circuit breaker tripped",
+    "error_code": "LATENCY_BREACH",
+    "metadata": { "p99_ms": 2150, "threshold_ms": 500 }
+  },
+  {
+    "component_id": "QUEUE_WORKER_02",
+    "component_type": "QUEUE",
+    "message": "Queue depth exceeded 50,000, consumers blocked",
+    "error_code": "QUEUE_OVERFLOW",
+    "metadata": { "queue_depth": 52300, "consumer_count": 0 }
+  }
+]

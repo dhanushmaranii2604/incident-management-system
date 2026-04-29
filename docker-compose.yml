@@ -1,0 +1,97 @@
+version: '3.9'
+
+services:
+  # ── MongoDB — raw signal data lake ─────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: ims_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PostgreSQL — Work Items + RCA (source of truth) ────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ims_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ims_workitems
+      POSTGRES_USER:     ims_user
+      POSTGRES_PASSWORD: ims_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ims_user -d ims_workitems"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis — hot-path cache + real-time dashboard state ────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ims_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ims_backend
+    restart: unless-stopped
+    environment:
+      PORT:              4000
+      MONGO_URI:         mongodb://mongo:27017/ims_signals
+      POSTGRES_URI:      postgresql://ims_user:ims_pass@postgres:5432/ims_workitems
+      REDIS_URI:         redis://redis:6379
+      RATE_LIMIT_MAX:    5000
+      DEBOUNCE_WINDOW_SEC: 10
+      DEBOUNCE_THRESHOLD: 100
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ims_frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:4000
+      REACT_APP_WS_URL:  ws://localhost:4000/ws
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  pg_data:
+  redis_data:

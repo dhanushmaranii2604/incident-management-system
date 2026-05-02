@@ -315,3 +315,16 @@ ims/
 ## Prompts and Planning
 
 See `docs/PROMPTS.md` for all prompts and planning markdowns used during development.
+## Architecture
+
+The system is organized into five layers:
+
+**Client** — A React dashboard connects to the backend over REST (for CRUD operations) and WebSocket (for real-time incident updates).
+
+**Backend** — An Express API handles rate limiting and routing. Incoming signals flow into a Ring Buffer capable of processing 10,000 signals/sec, then through a Signal Processor for debouncing and deduplication. The Incident Engine manages state transitions (OPEN → INVESTIGATING → RESOLVED → CLOSED) and calculates MTTR. An Alert Strategy module routes P0–P3 incidents and triggers notifications.
+
+**Data stores** — MongoDB stores incidents and raw signals. Redis handles caching and pub/sub for real-time delivery. PostgreSQL stores work items and RCA logs.
+
+**Infrastructure** — All services are orchestrated via Docker Compose and run fully inside GitHub Codespaces with no local setup required.
+
+**Tools** — `simulate_failure.js` injects live P0–P3 signals for testing. The `/health` endpoint reports live status of all three databases.
